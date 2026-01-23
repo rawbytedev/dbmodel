@@ -1,12 +1,14 @@
-package dbmodel
+package zerokv
 
-type Store interface {
+import "context"
+
+type Core interface {
 	// Put inserts or updates a key-value pair in the database.
-	Put(key []byte, data []byte) error
+	Put(ctx context.Context, key []byte, data []byte) error
 	// Get retrieves the value for a given key. Returns an error if not found.
-	Get(key []byte) ([]byte, error)
+	Get(ctx context.Context, key []byte) ([]byte, error)
 	// Del deletes a key-value pair from the database.
-	Delete(key []byte) error
+	Delete(ctx context.Context, key []byte) error
 	// Batch Operation creates a new batch operation for the database.
 	Batch() Batch
 	// Iterate over Database
@@ -25,7 +27,7 @@ type Iterator interface {
 
 type Batch interface {
 	// Write commits the batch operations to the database.
-	Commits() error
+	Commits(ctx context.Context) error
 	// Put inserts or updates a key-value pair in the database.
 	Put(key []byte, data []byte) error
 	// Del deletes a key-value pair from the database.

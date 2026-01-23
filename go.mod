@@ -1,4 +1,4 @@
-module dbmodel
+module github.com/rawbytedev/zerokv
 
 go 1.25.2
 

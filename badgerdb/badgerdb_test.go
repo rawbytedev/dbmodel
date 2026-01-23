@@ -1,22 +1,19 @@
-package stores_test
+package badgerdb_test
 
 import (
 	"crypto/rand"
-	"dbmodel"
-	"dbmodel/configs"
-	"dbmodel/stores"
 	"testing"
 
+	"github.com/rawbytedev/zerokv"
+	"github.com/rawbytedev/zerokv/badgerdb"
 	"github.com/stretchr/testify/require"
 )
 
 // setupBadgerDB creates a temporary BadgerDB instance for testing.
-func setupBadgerDB(t *testing.T) dbmodel.Store {
+func setupBadgerDB(t *testing.T) zerokv.Core {
 	tmp := t.TempDir()
-	db, err := stores.NewBadgerDB(configs.StoreConfig{
-		Default: &configs.DefaultOptions{
-			Dir: tmp,
-		},
+	db, err := badgerdb.NewBadgerDB(badgerdb.Config{
+		Dir: tmp,
 	})
 	if err != nil || db == nil {
 		t.Fatalf("Failed to create BadgerDB: %v", err)
@@ -39,18 +36,18 @@ func TestBadgerGetPutDelete(t *testing.T) {
 	for i := 0; i < 10; i++ {
 		keys[i] = randomBytes(16)
 		values[i] = randomBytes(32)
-		err := db.Put(keys[i], values[i])
+		err := db.Put(t.Context(), keys[i], values[i])
 		if err != nil {
 			t.Fatalf("Failed to put key-value pair: %v", err)
 		}
 	}
 	for i := 0; i < 10; i++ {
-		value, err := db.Get(keys[i])
+		value, err := db.Get(t.Context(), keys[i])
 		require.NoError(t, err, "Error retrieving value for key")
 		require.Equal(t, values[i], value, "Retrieved value does not match expected")
-		err = db.Delete(keys[i])
+		err = db.Delete(t.Context(), keys[i])
 		require.NoError(t, err, "Error deleting key")
-		_, err = db.Get(keys[i])
+		_, err = db.Get(t.Context(), keys[i])
 		require.Error(t, err, "Expected error retrieving deleted key")
 	}
 	defer db.Close()
@@ -60,7 +57,7 @@ func TestBadgerGetPutDelete(t *testing.T) {
 func TestBadgerGetNonExistentKey(t *testing.T) {
 	db := setupBadgerDB(t)
 	nonExistentKey := randomBytes(16)
-	_, err := db.Get(nonExistentKey)
+	_, err := db.Get(t.Context(), nonExistentKey)
 	require.Error(t, err, "Expected error when getting non-existent key")
 	defer db.Close()
 }
@@ -71,14 +68,14 @@ func TestBadgerOverwriteKey(t *testing.T) {
 	key := randomBytes(16)
 	value1 := randomBytes(32)
 	value2 := randomBytes(32)
-	err := db.Put(key, value1)
+	err := db.Put(t.Context(), key, value1)
 	require.NoError(t, err, "Error putting first value")
-	retrievedValue, err := db.Get(key)
+	retrievedValue, err := db.Get(t.Context(), key)
 	require.NoError(t, err, "Error getting first value")
 	require.Equal(t, value1, retrievedValue, "First retrieved value does not match")
-	err = db.Put(key, value2)
+	err = db.Put(t.Context(), key, value2)
 	require.NoError(t, err, "Error putting second value")
-	retrievedValue, err = db.Get(key)
+	retrievedValue, err = db.Get(t.Context(), key)
 	require.NoError(t, err, "Error getting second value")
 	require.Equal(t, value2, retrievedValue, "Second retrieved value does not match")
 	defer db.Close()
@@ -103,10 +100,10 @@ func TestBadgerBatchOperations(t *testing.T) {
 		err := batch.Put(keys[i], values[i])
 		require.NoError(t, err, "Error adding Put operation to batch")
 	}
-	err := batch.Commits()
+	err := batch.Commits(t.Context())
 	require.NoError(t, err, "Error committing batch operations")
 	for i := 0; i < 5; i++ {
-		retrievedValue, err := db.Get(keys[i])
+		retrievedValue, err := db.Get(t.Context(), keys[i])
 		require.NoError(t, err, "Error getting value after batch commit")
 		require.Equal(t, values[i], retrievedValue, "Retrieved value does not match expected after batch commit")
 	}
@@ -114,7 +111,7 @@ func TestBadgerBatchOperations(t *testing.T) {
 	err = batch.Put(keys[0], values[1])
 	require.Error(t, err, "This transaction has been discarded. Create a new one")
 	// This should also fail because the batch has already been committed
-	err = batch.Commits()
+	err = batch.Commits(t.Context())
 	require.Error(t, err, "Batch commit not permitted after finish")
 	defer db.Close()
 }
