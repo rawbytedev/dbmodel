@@ -16,6 +16,11 @@ type badgerBatch struct {
 	batch *badger.WriteBatch
 }
 
+type badgerIteractor struct {
+	iteractor *badger.Iterator
+	err       []error
+}
+
 // NewBadgerDB initializes and returns a BadgerDB instance at the specified path.
 func NewBadgerDB(cfg Config) (zerokv.Core, error) {
 	var opts badger.Options
@@ -106,29 +111,73 @@ Note: It is crucial to call Commits to ensure that all batched operations are sa
 and no new insertions/updates/deletions will be saved until Commits is called.
 Inserting to already committed batch is forbidden and will lead to errors.
 */
-func (b *badgerBatch) Commits(ctx context.Context) error {
+func (b *badgerBatch) Commit(ctx context.Context) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
 	return b.batch.Flush()
 }
 func (b *badgerdb) Scan(prefix []byte) zerokv.Iterator {
-	// Placeholder for Scan operation implementation
-	return nil
+	it := &badger.Iterator{}
+	b.db.View(func(txn *badger.Txn) error {
+		it = txn.NewIterator(badger.IteratorOptions{Prefix: prefix})
+		return nil
+	})
+	return &badgerIteractor{iteractor: it}
 }
-func (b *badgerdb) NewIterator() zerokv.Iterator {
-	// Placeholder for Iterator implementation
-	return nil
+func (it *badgerIteractor) Next() bool {
+	it.iteractor.Next()
+	return it.iteractor.Valid()
 }
-func NewReverseIterator() zerokv.Iterator {
-	// Placeholder for Reverse Iterator implementation
-	return nil
+
+func (it *badgerIteractor) Key() []byte {
+	return it.iteractor.Item().KeyCopy(nil) // safer, doesn't make changes to key
 }
-func NewPrefixIterator(prefix []byte) zerokv.Iterator {
-	// Placeholder for Prefix Iterator implementation
-	return nil
+func (it *badgerIteractor) Value() []byte {
+	data, err := it.iteractor.Item().ValueCopy(nil)
+	if err != nil {
+		it.err = append(it.err, err)
+		return []byte{}
+	}
+	return data
 }
-func NewReversePrefixIterator(prefix []byte) zerokv.Iterator {
-	// Placeholder for Reverse Prefix Iterator implementation
-	return nil
+func (it *badgerIteractor) Release() {
+	it.iteractor.Close()
+}
+func (it *badgerIteractor) Error() error {
+	return it.err[len(it.err)-1] // returns the most recent error
+}
+
+// special methods to use with an instance of badgerdb for some other operations
+func NewIterator(b *badgerdb) zerokv.Iterator {
+	it := &badger.Iterator{}
+	b.db.View(func(txn *badger.Txn) error {
+		it = txn.NewIterator(badger.IteratorOptions{})
+		return nil
+	})
+	return &badgerIteractor{iteractor: it}
+}
+func NewReverseIterator(b *badgerdb) zerokv.Iterator {
+	it := &badger.Iterator{}
+	b.db.View(func(txn *badger.Txn) error {
+		it = txn.NewIterator(badger.IteratorOptions{Reverse: true})
+		return nil
+	})
+	return &badgerIteractor{iteractor: it}
+}
+func NewPrefixIterator(b *badgerdb, prefix []byte) zerokv.Iterator {
+	it := &badger.Iterator{}
+	b.db.View(func(txn *badger.Txn) error {
+		it = txn.NewIterator(badger.IteratorOptions{Prefix: prefix})
+		return nil
+	})
+	return &badgerIteractor{iteractor: it}
+}
+func NewReversePrefixIterator(b *badgerdb, prefix []byte) zerokv.Iterator {
+	it := &badger.Iterator{}
+	b.db.View(func(txn *badger.Txn) error {
+		it = txn.NewIterator(badger.IteratorOptions{Prefix: prefix, Reverse: true})
+		return nil
+	})
+	return &badgerIteractor{iteractor: it}
 }

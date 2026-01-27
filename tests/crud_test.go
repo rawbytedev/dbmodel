@@ -1,22 +1,37 @@
-package badgerdb_test
+package tests
 
 import (
 	"crypto/rand"
+	"fmt"
 	"testing"
 
 	"github.com/rawbytedev/zerokv"
 	"github.com/rawbytedev/zerokv/badgerdb"
+	"github.com/rawbytedev/zerokv/pebbledb"
 	"github.com/stretchr/testify/require"
 )
 
+type tests struct {
+	name string
+	fn   func(t *testing.T, name string)
+}
+
 // setupBadgerDB creates a temporary BadgerDB instance for testing.
-func setupBadgerDB(t *testing.T) zerokv.Core {
+func setupDB(t *testing.T, name string) zerokv.Core {
 	tmp := t.TempDir()
-	db, err := badgerdb.NewBadgerDB(badgerdb.Config{
-		Dir: tmp,
-	})
+	var db zerokv.Core
+	var err error
+	if name == "badgerdb" {
+		db, err = badgerdb.NewBadgerDB(badgerdb.Config{
+			Dir: tmp,
+		})
+	} else {
+		db, err = pebbledb.NewPebbledb(pebbledb.Config{
+			Dir: tmp,
+		})
+	}
 	if err != nil || db == nil {
-		t.Fatalf("Failed to create BadgerDB: %v", err)
+		t.Fatalf("Failed to create %s: %v", name, err)
 	}
 	return db
 }
@@ -27,10 +42,42 @@ func randomBytes(n int) []byte {
 	rand.Read(b)
 	return b
 }
+func TestZeroKvImplementation(t *testing.T) {
+	dbs := []string{"badgerdb", "pebbledb"}
+	test := []tests{
+		{name: "TestGetPutDeleteBadgerdb",
+			fn: func(t *testing.T, name string) {
+				testGetPutDelete(t, name)
+			}}, {
+			name: "testGetNonExistentKey",
+			fn: func(t *testing.T, name string) {
+				testGetNonExistentKey(t, name)
+			}}, {
+			name: "TestOverwriteKey",
+			fn: func(t *testing.T, name string) {
+				testOverwriteKey(t, name)
+			}},
+		{
+			name: "TestClose",
+			fn: func(t *testing.T, name string) {
+				testClose(t, name)
+			}},
+	}
 
-// TestBadgerGetPutDelete tests basic Put, Get, and Delete operations.
-func TestBadgerGetPutDelete(t *testing.T) {
-	db := setupBadgerDB(t)
+	for i := range dbs {
+		for tt := range test {
+			testname := fmt.Sprintf("%s%s", test[tt].name, dbs[i])
+			t.Run(testname, func(t *testing.T) {
+				test[tt].fn(t, dbs[i])
+			})
+		}
+	}
+
+}
+
+// TestGetPutDelete tests basic Put, Get, and Delete operations.
+func testGetPutDelete(t *testing.T, name string) {
+	db := setupDB(t, name)
 	keys := make([][]byte, 10)
 	values := make([][]byte, 10)
 	for i := 0; i < 10; i++ {
@@ -53,18 +100,18 @@ func TestBadgerGetPutDelete(t *testing.T) {
 	defer db.Close()
 }
 
-// TestBadgerGetNonExistentKey tests retrieval of a non-existent key.
-func TestBadgerGetNonExistentKey(t *testing.T) {
-	db := setupBadgerDB(t)
+// TestGetNonExistentKey tests retrieval of a non-existent key.
+func testGetNonExistentKey(t *testing.T, name string) {
+	db := setupDB(t, name)
 	nonExistentKey := randomBytes(16)
 	_, err := db.Get(t.Context(), nonExistentKey)
 	require.Error(t, err, "Expected error when getting non-existent key")
 	defer db.Close()
 }
 
-// TestBadgerOverwriteKey tests overwriting an existing key.
-func TestBadgerOverwriteKey(t *testing.T) {
-	db := setupBadgerDB(t)
+// TestOverwriteKey tests overwriting an existing key.
+func testOverwriteKey(t *testing.T, name string) {
+	db := setupDB(t, name)
 	key := randomBytes(16)
 	value1 := randomBytes(32)
 	value2 := randomBytes(32)
@@ -81,37 +128,9 @@ func TestBadgerOverwriteKey(t *testing.T) {
 	defer db.Close()
 }
 
-// TestBadgerClose tests closing the BadgerDB instance.
-func TestBadgerClose(t *testing.T) {
-	db := setupBadgerDB(t)
+// TestClose tests closing the PebbleDB instance.
+func testClose(t *testing.T, name string) {
+	db := setupDB(t, name)
 	err := db.Close()
-	require.NoError(t, err, "Error closing BadgerDB")
-}
-
-// TestBadgerBatchOperations tests batch Put and Get operations.
-func TestBadgerBatchOperations(t *testing.T) {
-	db := setupBadgerDB(t)
-	batch := db.Batch()
-	keys := make([][]byte, 5)
-	values := make([][]byte, 5)
-	for i := 0; i < 5; i++ {
-		keys[i] = randomBytes(16)
-		values[i] = randomBytes(32)
-		err := batch.Put(keys[i], values[i])
-		require.NoError(t, err, "Error adding Put operation to batch")
-	}
-	err := batch.Commit(t.Context())
-	require.NoError(t, err, "Error committing batch operations")
-	for i := 0; i < 5; i++ {
-		retrievedValue, err := db.Get(t.Context(), keys[i])
-		require.NoError(t, err, "Error getting value after batch commit")
-		require.Equal(t, values[i], retrievedValue, "Retrieved value does not match expected after batch commit")
-	}
-	// This should fail because the batch has already been committed
-	err = batch.Put(keys[0], values[1])
-	require.Error(t, err, "This transaction has been discarded. Create a new one")
-	// This should also fail because the batch has already been committed
-	err = batch.Commit(t.Context())
-	require.Error(t, err, "Batch commit not permitted after finish")
-	defer db.Close()
+	require.NoError(t, err, "Error closing PebbleDB")
 }

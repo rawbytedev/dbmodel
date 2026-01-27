@@ -27,7 +27,7 @@ type Iterator interface {
 
 type Batch interface {
 	// Write commits the batch operations to the database.
-	Commits(ctx context.Context) error
+	Commit(ctx context.Context) error
 	// Put inserts or updates a key-value pair in the database.
 	Put(key []byte, data []byte) error
 	// Del deletes a key-value pair from the database.

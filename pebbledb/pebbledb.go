@@ -1,20 +1,3 @@
-// PebbleDB implementation for DB interface.
-// Provides efficient key-value storage for blocks, transactions, and other data.
-// Supports batch operations and is optimized for concurrent access.
-//
-// Usage:
-//   db, err := NewPebbledb(cfg)
-//   err = db.Put(key, value)
-//   value, err := db.Get(key)
-//   err = db.Del(key)
-//   err = db.Close()
-//
-// Batch operations:
-//   err = db.BatchPut(key, value)   // enqueue
-//   err = db.BatchPut(nil, nil)     // flush
-//   err = db.BatchDel(key)          // enqueue delete
-//   err = db.BatchDel(nil)          // flush
-
 package pebbledb
 
 import (
@@ -96,7 +79,7 @@ func (p *pebbleBatch) Delete(key []byte) error {
 }
 
 // flushBatch flushes any pending batch operations.
-func (p *pebbleBatch) Commits(ctx context.Context) error {
+func (p *pebbleBatch) Commit(ctx context.Context) error {
 	return p.batch.Commit(pebble.Sync)
 }
 

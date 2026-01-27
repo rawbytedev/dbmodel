@@ -101,7 +101,7 @@ func TestPebbleBatchOperations(t *testing.T) {
 		err := batch.Put(keys[i], values[i])
 		require.NoError(t, err, "Error adding Put operation to batch")
 	}
-	err := batch.Commits(t.Context())
+	err := batch.Commit(t.Context())
 	require.NoError(t, err, "Error committing batch operations")
 	for i := 0; i < 5; i++ {
 		retrievedValue, err := db.Get(t.Context(), keys[i])
@@ -114,7 +114,7 @@ func TestPebbleBatchOperations(t *testing.T) {
 	})
 	// This should also fail because the batch has already been committed
 	require.Panics(t, func() {
-		batch.Commits(t.Context())
+		batch.Commit(t.Context())
 	})
 	defer db.Close()
 }
