@@ -2,8 +2,11 @@
 
 [![Go Report Card](https://goreportcard.com/badge/github.com/rawbytedev/zerokv)](https://goreportcard.com/report/github.com/rawbytedev/zerokv)
 ![Test and Benchmark](https://github.com/rawbytedev/zerokv/actions/workflows/tests.yml/badge.svg)
-[![Go Reference](https://img.shields.io/badge/godoc-reference-blue.svg)](https://pkg.go.dev/github.com/rawbytedev/zerokv)
+[![Go Version](https://img.shields.io/github/go-mod/go-version/rawbytedev/zerokv)](https://github.com/rawbytedev/zerokv)
+[![PkgGoDev](https://pkg.go.dev/badge/github.com/rawbytedev/zerokv.svg)](https://pkg.go.dev/github.com/rawbytedev/zerokv)
+[![GitHub last commit](https://img.shields.io/github/last-commit/rawbytedev/zerokv)](https://github.com/rawbytedev/zerokv)
 [![GitHub Release](https://img.shields.io/github/v/release/rawbytedev/zerokv)](https://github.com/rawbytedev/zerokv/releases/latest)
+[![GitHub issues](https://img.shields.io/github/issues/rawbytedev/zerokv)](https://github.com/rawbytedev/zerokv/issues)
 
 A minimal, zero-overhead key-value store abstraction for Go. Write your data logic once, then choose your database by changing imports.
 
