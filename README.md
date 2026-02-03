@@ -12,13 +12,13 @@
 
 ## Key Features
 
-- **🎯 Minimal Abstraction** - Small, focused interface (Core, Batch, Iterator)
-- **⚡ Zero Overhead** - No reflection, no wrappers, just direct calls
-- **📦 Raw Bytes** - Full control over serialization (JSON, Protobuf, msgpack, etc.)
-- **🔄 Context Aware** - Full support for cancellation, timeouts, and deadlines
-- **🔌 Pluggable Backends** - Switch databases without changing application code
-- **📖 Production Ready** - Well-tested with multiple implementations
-- **🧪 Comprehensive Testing** - 80%+ test coverage with shared integration tests
+- **Minimal Abstraction** - Small, focused interface (Core, Batch, Iterator)
+- **Zero Overhead** - No reflection, no wrappers, just direct calls
+- **Raw Bytes** - Full control over serialization (JSON, Protobuf, msgpack, etc.)
+- **Context Aware** - Full support for cancellation, timeouts, and deadlines
+- **Pluggable Backends** - Switch databases without changing application code
+- **Production Ready** - Well-tested with multiple implementations
+- **Comprehensive Testing** - 80%+ test coverage with shared integration tests
 
 ## Philosophy
 
@@ -35,9 +35,7 @@ ZeroKV is built on three core principles:
 ### Installation
 
 ```bash
-go get github.com/rawbytedev/zerokv/badgerdb
-# or
-go get github.com/rawbytedev/zerokv/pebbledb
+go get github.com/rawbytedev/zerokv
 ```
 
 ### Basic Usage
@@ -82,7 +80,7 @@ One of ZeroKV's superpowers is database portability:
 // Using BadgerDB
 db, _ := badgerdb.NewBadgerDB(badgerdb.Config{Dir: "/tmp/data"})
 
-// Switch to PebbleDB - zero code changes needed!
+// Switch to PebbleDB - zero code changes needed
 // db, _ := pebbledb.NewPebbleDB(pebbledb.Config{Dir: "/tmp/data"})
 
 // All existing code works unchanged
@@ -312,17 +310,9 @@ Apache License 2.0 - See [LICENSE](LICENSE) for details.
 
 ## Support
 
-- 📖 Documentation: See [USAGE.md](USAGE.md) and [API.md](API.md)
-- 🐛 Issues: [GitHub Issues](https://github.com/rawbytedev/zerokv/issues)
-- 💬 Discussions: [GitHub Discussions](https://github.com/rawbytedev/zerokv/discussions)
-
-## Roadmap
-
-- [ ] Performance benchmarks and comparisons
-- [ ] Example applications
-- [ ] Additional backend implementations (LevelDB, SQLite, etc.)
-- [ ] Transaction support (if applicable)
-- [ ] Metrics and observability helpers
+- Documentation: See [USAGE.md](USAGE.md) and [API.md](API.md)
+- Issues: [GitHub Issues](https://github.com/rawbytedev/zerokv/issues)
+- Discussions: [GitHub Discussions](https://github.com/rawbytedev/zerokv/discussions)
 
 ## Related Projects
 
