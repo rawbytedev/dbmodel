@@ -299,10 +299,10 @@ Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) for gu
 4. Add tests
 5. Submit a pull request
 
-## Requirements
+### Requirements
 
 - **Go 1.25.2+**
-- Database library for your chosen backend
+- Chosen Database
 
 ## License
 
@@ -313,9 +313,3 @@ Apache License 2.0 - See [LICENSE](LICENSE) for details.
 - Documentation: See [USAGE.md](USAGE.md) and [API.md](API.md)
 - Issues: [GitHub Issues](https://github.com/rawbytedev/zerokv/issues)
 - Discussions: [GitHub Discussions](https://github.com/rawbytedev/zerokv/discussions)
-
-## Related Projects
-
-- [BadgerDB](https://github.com/dgraph-io/badger) - High-performance embedded KV
-- [PebbleDB](https://github.com/cockroachdb/pebble) - RocksDB-compatible store
-- [Go Interface Design](https://golang.org/doc/effective_go#interfaces_and_other_types) - Go best practices
