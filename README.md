@@ -215,7 +215,6 @@ zerokv/
 ├── tests/                  # Shared integration tests
 ├── helpers/                # Test utilities
 ├── examples/               # Usage examples
-└── docs/                   # Documentation
 ```
 
 ## Testing
