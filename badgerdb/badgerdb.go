@@ -9,7 +9,7 @@ import (
 	"github.com/dgraph-io/badger/v4"
 )
 
-type badgerDB struct {
+type BadgerDB struct {
 	db *badger.DB
 }
 type badgerBatch struct {
@@ -23,7 +23,7 @@ type badgerIterator struct {
 	err      []error
 }
 
-// NewBadgerDB initializes and returns a zerokv.Core instance at the specified path(badgerDB).
+// NewBadgerDB initializes and returns a zerokv.Core instance at the specified path(BadgerDB).
 func NewBadgerDB(cfg Config) (zerokv.Core, error) {
 	var opts badger.Options
 	if cfg.BadgerConfigs != nil {
@@ -35,13 +35,13 @@ func NewBadgerDB(cfg Config) (zerokv.Core, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &badgerDB{db: db}, nil
+	return &BadgerDB{db: db}, nil
 }
 
 // --- Basic CRUD operations ---
 
 // Put inserts or updates a key-value pair in the database.
-func (b *badgerDB) Put(ctx context.Context, key, value []byte) error {
+func (b *BadgerDB) Put(ctx context.Context, key, value []byte) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
@@ -51,7 +51,7 @@ func (b *badgerDB) Put(ctx context.Context, key, value []byte) error {
 }
 
 // Get retrieves the value for a given key. Returns an error if not found.
-func (b *badgerDB) Get(ctx context.Context, key []byte) ([]byte, error) {
+func (b *BadgerDB) Get(ctx context.Context, key []byte) ([]byte, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
@@ -71,7 +71,7 @@ func (b *badgerDB) Get(ctx context.Context, key []byte) ([]byte, error) {
 }
 
 // Delete removes a key-value pair from the database.
-func (b *badgerDB) Delete(ctx context.Context, key []byte) error {
+func (b *BadgerDB) Delete(ctx context.Context, key []byte) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
@@ -81,7 +81,7 @@ func (b *badgerDB) Delete(ctx context.Context, key []byte) error {
 }
 
 // Close closes the BadgerDB instance and releases all resources.
-func (b *badgerDB) Close() error {
+func (b *BadgerDB) Close() error {
 	var errs []error
 	if b.db != nil {
 		if err := b.db.Close(); err != nil {
@@ -97,7 +97,7 @@ func (b *badgerDB) Close() error {
 // -- Batch operations
 
 // Batch creates a new batch operation for the BadgerDB instance.
-func (b *badgerDB) Batch() zerokv.Batch {
+func (b *BadgerDB) Batch() zerokv.Batch {
 	return &badgerBatch{batch: b.db.NewWriteBatch()}
 }
 
@@ -121,7 +121,7 @@ func (b *badgerBatch) Commit(ctx context.Context) error {
 
 // -- Iterator operations
 
-func (b *badgerDB) Scan(prefix []byte) zerokv.Iterator {
+func (b *BadgerDB) Scan(prefix []byte) zerokv.Iterator {
 	txn := b.db.NewTransaction(false)
 	it := txn.NewIterator(badger.IteratorOptions{Prefix: prefix, PrefetchValues: true})
 	return &badgerIterator{Iterator: it}
@@ -169,35 +169,26 @@ func (it *badgerIterator) Error() error {
 
 //  --- specials methods to use with an instance of badgerdb for some other operations
 
-func NewIterator(b *badgerDB) zerokv.Iterator {
-	it := &badger.Iterator{}
-	b.db.View(func(txn *badger.Txn) error {
-		it = txn.NewIterator(badger.IteratorOptions{})
-		return nil
-	})
+func NewIterator(b *BadgerDB) zerokv.Iterator {
+	txn := b.db.NewTransaction(false)
+	it := txn.NewIterator(badger.IteratorOptions{PrefetchValues: true})
 	return &badgerIterator{Iterator: it}
 }
-func NewReverseIterator(b *badgerDB) zerokv.Iterator {
-	it := &badger.Iterator{}
-	b.db.View(func(txn *badger.Txn) error {
-		it = txn.NewIterator(badger.IteratorOptions{Reverse: true})
-		return nil
-	})
+func NewPrefixIterator(b *BadgerDB, prefix []byte) zerokv.Iterator {
+	txn := b.db.NewTransaction(false)
+	it := txn.NewIterator(badger.IteratorOptions{Prefix: prefix, PrefetchValues: true})
 	return &badgerIterator{Iterator: it}
 }
-func NewPrefixIterator(b *badgerDB, prefix []byte) zerokv.Iterator {
-	it := &badger.Iterator{}
-	b.db.View(func(txn *badger.Txn) error {
-		it = txn.NewIterator(badger.IteratorOptions{Prefix: prefix})
-		return nil
-	})
+
+func NewReverseIterator(b *BadgerDB) zerokv.Iterator {
+	txn := b.db.NewTransaction(false)
+	it := txn.NewIterator(badger.IteratorOptions{Reverse: true, PrefetchValues: true,
+		PrefetchSize: 100})
 	return &badgerIterator{Iterator: it}
 }
-func NewReversePrefixIterator(b *badgerDB, prefix []byte) zerokv.Iterator {
-	it := &badger.Iterator{}
-	b.db.View(func(txn *badger.Txn) error {
-		it = txn.NewIterator(badger.IteratorOptions{Prefix: prefix, Reverse: true})
-		return nil
-	})
+
+func NewReversePrefixIterator(b *BadgerDB, prefix []byte) zerokv.Iterator {
+	txn := b.db.NewTransaction(false)
+	it := txn.NewIterator(badger.IteratorOptions{Prefix: prefix, PrefetchValues: true, PrefetchSize: 100, Reverse: true})
 	return &badgerIterator{Iterator: it}
 }

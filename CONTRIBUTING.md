@@ -1,16 +1,14 @@
-# Contributors Guide
+# Contributing to ZeroKV
 
-This guide will help familiarize contributors to the `rawbytedev/zerokv` repository. ZeroKV is a minimal, zero-overhead key-value store abstraction for Go that allows you to switch between different database backends without changing your application code.
+Thank you for your interest in contributing to ZeroKV! This guide provides everything you need to contribute code, implement new backends, and maintain code quality.
 
 ## Table of Contents
 
 - [Getting Started](#getting-started)
 - [Development Setup](#development-setup)
 - [Code Style Guidelines](#code-style-guidelines)
-- [Implementing a New Storage Backend](#implementing-a-new-storage-backend)
+- [Adding New Backend Implementations](#implementing-a-new-storage-backend)
 - [Testing Requirements](#testing-requirements)
-- [Using ZeroKV](#using-zerokv)
-- [Pull Request Checklist](#pull-request-checklist)
 
 ---
 
@@ -19,8 +17,6 @@ This guide will help familiarize contributors to the `rawbytedev/zerokv` reposit
 ### Prerequisites
 
 - Go 1.25.2 or higher
-- Git
-- Basic understanding of key-value stores
 
 ### Cloning the Repository
 
@@ -35,6 +31,13 @@ cd zerokv
 go mod download
 go mod tidy
 ```
+
+### First Steps
+
+1. Read [USAGE.md](USAGE.md) to understand how ZeroKV works
+2. Review [API.md](API.md) for the complete interface specification
+3. Check [ERROR_HANDLING.md](ERROR_HANDLING.md) for error behavior documentation
+4. If implementing a backend, read [IMPLEMENTATION.md](IMPLEMENTATION.md)
 
 ---
 
@@ -66,24 +69,6 @@ zerokv/
     └── runtime_switch_usage.go
 ```
 
-### Running Tests Locally
-
-```bash
-# Run all tests
-go test ./...
-
-# Run tests with verbose output
-go test ./... -v
-
-# Run tests with race detector
-go test ./... -race
-
-# Run specific test package
-go test ./tests -v
-go test ./badgerdb -v
-go test ./pebbledb -v
-```
-
 ### Building the Project
 
 ```bash
@@ -92,6 +77,9 @@ go build ./...
 
 # Run code quality checks
 go vet ./...
+
+# Format after making changes
+gofmt -w 
 ```
 
 ---
@@ -101,9 +89,8 @@ go vet ./...
 ### Naming Conventions
 
 - **Interfaces**: Use descriptive names (e.g., `Core`, `Iterator`, `Batch`)
-- **Structs**: Use camelCase, no abbreviated names (e.g., `badgerDB`, not `bdb`)
+- **Structs**: Use camelCase, no abbreviated names (e.g., `BadgerDB`, not `bdb`)
 - **Methods**: Descriptive action verbs (e.g., `Put()`, `Get()`, `Delete()`)
-- **Constants**: Use PascalCase (e.g., `PutOp`, `GetOp`)
 - **Unexported**: Lowercase first letter (e.g., `badgerDB`, `badgerIterator`)
 
 ### File Organization
@@ -125,7 +112,7 @@ All exported functions and types must have documentation comments:
 ```go
 // Put inserts or updates a key-value pair in the database.
 // Returns an error if the operation fails.
-func (b *badgerDB) Put(ctx context.Context, key []byte, data []byte) error {
+func (b *BadgerDB) Put(ctx context.Context, key []byte, data []byte) error {
     // Implementation
 }
 
@@ -154,7 +141,7 @@ All operations that accept `context.Context` must:
 3. Return context errors appropriately
 
 ```go
-func (b *badgerDB) Get(ctx context.Context, key []byte) ([]byte, error) {
+func (b *BadgerDB) Get(ctx context.Context, key []byte) ([]byte, error) {
     if err := ctx.Err(); err != nil {
         return nil, err
     }
@@ -410,12 +397,23 @@ func SetupDB(t *testing.T, name string) zerokv.Core {
 ### Running Tests
 
 ```bash
+# Run all tests
+go test ./...
+
 # Run all tests with coverage
 go test ./... -cover
 
 # Run with coverage report
 go test ./... -coverprofile=coverage.out
 go tool cover -html=coverage.out
+
+# Run with race detector
+go test ./... -race
+
+# Run specific package tests
+go test ./tests -v
+go test ./badgerdb -v
+go test ./pebbledb -v
 ```
 
 ### What Must Be Tested
@@ -426,6 +424,7 @@ Every implementation must pass:
    - Put/Get/Delete operations
    - Non-existent key retrieval
    - Key overwriting
+   - Close operation
 
 2. **Iterator Tests** (`tests/iterator_test.go`)
    - Iteration with prefix
@@ -443,152 +442,9 @@ Every implementation must pass:
 - All error paths should be tested
 - Edge cases must be covered (empty data, context cancellation, etc.)
 
----
+### Error Handling in Tests
 
-## Using ZeroKV
-
-### Basic Usage
-
-```go
-package main
-
-import (
-    "context"
-    "github.com/rawbytedev/zerokv/badgerdb"
-)
-
-func main() {
-    // Initialize database
-    db, err := badgerdb.NewBadgerDB(badgerdb.Config{Dir: "/tmp/mydb"})
-    if err != nil {
-        panic(err)
-    }
-    defer db.Close()
-    
-    ctx := context.Background()
-    
-    // Put data
-    err = db.Put(ctx, []byte("key"), []byte("value"))
-    if err != nil {
-        panic(err)
-    }
-    
-    // Get data
-    value, err := db.Get(ctx, []byte("key"))
-    if err != nil {
-        panic(err)
-    }
-    
-    // Delete data
-    err = db.Delete(ctx, []byte("key"))
-    if err != nil {
-        panic(err)
-    }
-}
-```
-
-### Batch Operations
-
-```go
-ctx := context.Background()
-batch := db.Batch()
-
-// Add operations to batch
-batch.Put([]byte("key1"), []byte("value1"))
-batch.Put([]byte("key2"), []byte("value2"))
-batch.Delete([]byte("key3"))
-
-// Commit batch
-err := batch.Commit(ctx)
-if err != nil {
-    panic(err)
-}
-```
-
-### Iteration with Prefix
-
-```go
-ctx := context.Background()
-iterator := db.Scan([]byte("prefix_"))
-
-defer iterator.Release()
-
-for iterator.Next() {
-    key := iterator.Key()
-    value := iterator.Value()
-    // Process key-value pair
-}
-
-if iterator.Error() != nil {
-    panic(iterator.Error())
-}
-```
-
-### Switching Databases at Runtime
-
-```go
-// Using BadgerDB
-db, _ := badgerdb.NewBadgerDB(badgerdb.Config{Dir: "/tmp/data"})
-defer db.Close()
-
-// Switch to PebbleDB without changing code
-// db, _ := pebbledb.NewPebbleDB(pebbledb.Config{Dir: "/tmp/data"})
-
-db.Put(ctx, key, value)
-result, _ := db.Get(ctx, key)
-```
-
----
-
-## Pull Request Checklist
-
-Before submitting a pull request, ensure:
-
-### Code Quality
-
-- [ ] Code follows the style guidelines above
-- [ ] All exported functions have documentation comments
-- [ ] No unused variables or imports (`go vet ./...`)
-- [ ] Code is properly formatted (`go fmt ./...`)
-- [ ] Race conditions are checked (`go test -race ./...`)
-
-### Testing
-
-- [ ] All tests pass: `go test ./...`
-- [ ] New tests are added for new features
-- [ ] Test coverage is at least 80%
-- [ ] Implementation passes shared integration tests in `tests/`
-
-### Implementation Completeness
-
-- [ ] All `zerokv.Core` interface methods are implemented
-- [ ] All `zerokv.Batch` interface methods are implemented
-- [ ] All `zerokv.Iterator` interface methods are implemented
-- [ ] Context handling is consistent across all methods
-- [ ] Iterator `Error()` method handles empty error slices
-- [ ] Resource cleanup is properly documented
-
-### Documentation
-
-- [ ] README updated if adding new features
-- [ ] Code comments explain non-obvious logic
-- [ ] Examples provided for new functionality
-- [ ] CONTRIBUTING.md updated if process changes
-
-### Commits
-
-- [ ] Commits are logically organized
-- [ ] Commit messages are descriptive
-- [ ] No merge commits (rebase before PR)
-
-### For New Backend Implementations
-
-- [ ] Package structure follows the pattern in existing backends
-- [ ] Configuration struct defined in `options.go`
-- [ ] All CRUD and batch tests pass
-- [ ] Iterator tests pass
-- [ ] Implementation-specific tests added
-- [ ] Helper `SetupDB()` updated to include new backend
+See [ERROR_HANDLING.md](ERROR_HANDLING.md) for how different implementations handle errors and how to test them properly.
 
 ---
 
@@ -596,7 +452,10 @@ Before submitting a pull request, ensure:
 
 - Review existing implementations in `badgerdb/` and `pebbledb/`
 - Check the `examples/` directory for usage patterns
-- Read the interface definition in `interface.go`
+- Read [USAGE.md](USAGE.md) for usage examples
+- Read [API.md](API.md) for API documentation
+- Read [ERROR_HANDLING.md](ERROR_HANDLING.md) for error handling details
+- Read [IMPLEMENTATION.md](IMPLEMENTATION.md) for backend implementation guide
 - Run tests with verbose output: `go test ./... -v`
 
 ---

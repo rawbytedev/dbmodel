@@ -1,9 +1,12 @@
 package pebbledb_test
 
 import (
+	"bytes"
 	"testing"
 
+	"github.com/rawbytedev/zerokv"
 	"github.com/rawbytedev/zerokv/helpers"
+	"github.com/rawbytedev/zerokv/pebbledb"
 	"github.com/stretchr/testify/require"
 )
 
@@ -36,4 +39,144 @@ func TestPebbleBatchOperations(t *testing.T) {
 		batch.Commit(t.Context())
 	})
 	defer db.Close()
+}
+
+// Helper to fill database with test values
+func fillPebbleValues(t *testing.T, db zerokv.Core) ([][]byte, [][]byte) {
+	keys := make([][]byte, 10)
+	values := make([][]byte, 10)
+	for i := 0; i < 10; i++ {
+		keys[i] = helpers.RandomBytes(16)
+		values[i] = helpers.RandomBytes(32)
+		pref_key := make([]byte, 0)
+		pref_key = append(pref_key, []byte("pre_")...)
+		pref_key = append(pref_key, keys[i]...)
+		err := db.Put(t.Context(), pref_key, values[i])
+		require.NoError(t, err)
+	}
+	return keys, values
+}
+
+// TestPebbleReverseIterator tests full reverse iteration
+func TestPebbleReverseIterator(t *testing.T) {
+	tmp := t.TempDir()
+	dbInterface, err := pebbledb.NewPebbleDB(pebbledb.Config{Dir: tmp})
+	require.NoError(t, err)
+
+	pdb := dbInterface.(*pebbledb.PebbleDB)
+	require.NotNil(t, pdb)
+
+	_, values := fillPebbleValues(t, pdb)
+
+	// Test full reverse iteration
+	it := pebbledb.NewReverseIterator(pdb)
+	require.NotNil(t, it, "Reverse iterator should not be nil")
+
+	count := 0
+	for it.Next() {
+		count++
+		require.NotNil(t, it.Key(), "Key should not be nil")
+		require.NotNil(t, it.Value(), "Value should not be nil")
+
+		// Verify value is in our set
+		found := false
+		for i := 0; i < len(values); i++ {
+			if bytes.Equal(values[i], it.Value()) {
+				found = true
+				break
+			}
+		}
+		require.True(t, found, "Retrieved value should be from inserted values")
+	}
+	require.True(t, count > 0, "Should iterate at least once")
+	require.NoError(t, it.Error(), "Iterator should have no errors")
+
+	defer it.Release()
+	defer pdb.Close()
+}
+
+// TestPebbleReversePrefixIterator tests reverse iteration with prefix
+func TestPebbleReversePrefixIterator(t *testing.T) {
+	tmp := t.TempDir()
+	dbInterface, err := pebbledb.NewPebbleDB(pebbledb.Config{Dir: tmp})
+	require.NoError(t, err)
+
+	pdb := dbInterface.(*pebbledb.PebbleDB)
+	require.NotNil(t, pdb)
+
+	_, values := fillPebbleValues(t, pdb)
+
+	// Test reverse prefix iteration
+	it := pebbledb.NewReversePrefixIterator(pdb, []byte("pre_"))
+	require.NotNil(t, it, "Reverse prefix iterator should not be nil")
+
+	count := 0
+	for it.Next() {
+		count++
+		key := it.Key()
+		require.NotNil(t, key, "Key should not be nil")
+		require.True(t, bytes.HasPrefix(key, []byte("pre_")), "Key should have prefix")
+
+		// Verify value is in our set
+		found := false
+		for i := 0; i < len(values); i++ {
+			if bytes.Equal(values[i], it.Value()) {
+				found = true
+				break
+			}
+		}
+		require.True(t, found, "Retrieved value should be from inserted values")
+	}
+	require.Equal(t, 10, count, "Should iterate exactly 10 times")
+	require.NoError(t, it.Error(), "Iterator should have no errors")
+
+	defer it.Release()
+	defer pdb.Close()
+}
+
+// TestPebbleReverseIteratorOrder verifies reverse order
+func TestPebbleReverseIteratorOrder(t *testing.T) {
+	tmp := t.TempDir()
+	dbInterface, err := pebbledb.NewPebbleDB(pebbledb.Config{Dir: tmp})
+	require.NoError(t, err)
+
+	pdb := dbInterface.(*pebbledb.PebbleDB)
+	require.NotNil(t, pdb)
+
+	// Insert keys in predictable order
+	keys := [][]byte{
+		[]byte("key_01"),
+		[]byte("key_02"),
+		[]byte("key_03"),
+		[]byte("key_04"),
+		[]byte("key_05"),
+	}
+	for _, key := range keys {
+		err := pdb.Put(t.Context(), key, []byte("value"))
+		require.NoError(t, err)
+	}
+
+	// Get forward order
+	forwardKeys := make([][]byte, 0)
+	it := pdb.Scan([]byte("key_"))
+	for it.Next() {
+		forwardKeys = append(forwardKeys, it.Key())
+	}
+	it.Release()
+
+	// Get reverse order
+	reverseKeys := make([][]byte, 0)
+	rit := pebbledb.NewReversePrefixIterator(pdb, []byte("key_"))
+	for rit.Next() {
+		reverseKeys = append(reverseKeys, rit.Key())
+	}
+	rit.Release()
+
+	// Verify they're in opposite order
+	require.Equal(t, len(forwardKeys), len(reverseKeys), "Should have same count")
+	for i := 0; i < len(forwardKeys); i++ {
+		require.Equal(t, forwardKeys[i], reverseKeys[len(reverseKeys)-1-i], "Keys should be in reverse order")
+	}
+
+	defer pdb.Close()
 }
