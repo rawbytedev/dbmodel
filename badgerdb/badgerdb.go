@@ -179,16 +179,63 @@ func NewPrefixIterator(b *BadgerDB, prefix []byte) zerokv.Iterator {
 	it := txn.NewIterator(badger.IteratorOptions{Prefix: prefix, PrefetchValues: true})
 	return &badgerIterator{Iterator: it}
 }
+type badgerReverseIterator struct {
+	Iterator *badger.Iterator
+	started  bool
+	valid    bool
+	err      []error
+}
+
+func (it *badgerReverseIterator) Next() bool {
+	if !it.started {
+		it.Iterator.Seek([]byte{0xFF}) // Start from the end of the keyspace
+		it.started = true
+	} else {
+		it.Iterator.Next()
+	}
+	it.valid = it.Iterator.Valid()
+	return it.valid
+}
+
+func (it *badgerReverseIterator) Key() []byte {
+	if !it.valid {
+		return nil
+	}
+	return it.Iterator.Item().KeyCopy(nil) // safer, doesn't make changes to key
+}
+func (it *badgerReverseIterator) Value() []byte {
+	if !it.valid {
+		return nil
+	}
+	data, err := it.Iterator.Item().ValueCopy(nil)
+	if err != nil {
+		it.err = append(it.err, err)
+		return []byte{}
+	}
+	return data
+}
+
+// Release Must be called to avoid memory leaks
+func (it *badgerReverseIterator) Release() {
+	it.Iterator.Close()
+}
+
+func (it *badgerReverseIterator) Error() error {
+	if len(it.err) == 0 {
+		return nil
+	}
+	return it.err[len(it.err)-1]
+}
 
 func NewReverseIterator(b *BadgerDB) zerokv.Iterator {
 	txn := b.db.NewTransaction(false)
 	it := txn.NewIterator(badger.IteratorOptions{Reverse: true, PrefetchValues: true,
 		PrefetchSize: 100})
-	return &badgerIterator{Iterator: it}
+	return &badgerReverseIterator{Iterator: it}
 }
 
 func NewReversePrefixIterator(b *BadgerDB, prefix []byte) zerokv.Iterator {
 	txn := b.db.NewTransaction(false)
-	it := txn.NewIterator(badger.IteratorOptions{Prefix: prefix, PrefetchValues: true, PrefetchSize: 100, Reverse: true})
-	return &badgerIterator{Iterator: it}
+	it := txn.NewIterator(badger.IteratorOptions{Prefix: []byte(prefix), PrefetchValues: true, PrefetchSize: 100, Reverse: true})
+	return &badgerReverseIterator{Iterator: it}
 }

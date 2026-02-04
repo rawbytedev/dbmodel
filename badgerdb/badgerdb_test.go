@@ -96,7 +96,6 @@ func TestBadgerReverseIterator(t *testing.T) {
 
 // TestBadgerReversePrefixIterator tests reverse iteration with prefix
 func TestBadgerReversePrefixIterator(t *testing.T) {
-	t.Skip("They seems to be an issue with iterators")
 	tmp := t.TempDir()
 	dbInterface, err := badgerdb.NewBadgerDB(badgerdb.Config{Dir: tmp})
 	require.NoError(t, err)
@@ -107,7 +106,7 @@ func TestBadgerReversePrefixIterator(t *testing.T) {
 	_, values := fillBadgerValues(t, bdb)
 
 	// Test reverse prefix iteration
-	it := badgerdb.NewReversePrefixIterator(bdb, []byte("pre"))
+	it := badgerdb.NewReversePrefixIterator(bdb, []byte("pre_"))
 	require.NotNil(t, it, "Reverse prefix iterator should not be nil")
 
 	count := 0
@@ -136,7 +135,6 @@ func TestBadgerReversePrefixIterator(t *testing.T) {
 
 // TestBadgerReverseIteratorOrder verifies reverse order
 func TestBadgerReverseIteratorOrder(t *testing.T) {
-	t.Skip("The same issue seems to occur when making use of prefix alongside reverse")
 	tmp := t.TempDir()
 	dbInterface, err := badgerdb.NewBadgerDB(badgerdb.Config{Dir: tmp})
 	require.NoError(t, err)
